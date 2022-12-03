@@ -88,6 +88,11 @@ parser SLBParser(packet_in packet,
     /* parser ethernet frame */
     state parse_ethernet {
         /* WRITE YOUR CODE HERE */
+        packet.extract(hdr.ethernet);
+        transition select(hdr.ethernet.etherType) {
+            TYPE_ARP: parse_arp;
+            TYPE_IPV4: parse_ipv4;
+            default:accept;
         }
 
     }
