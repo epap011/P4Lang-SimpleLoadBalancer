@@ -159,8 +159,7 @@ control SLBIngress(inout headers hdr,
         meta.isClient = 1;
         meta.isServer = 0;
         /* WRITE YOUR CODE HERE */
-
-
+        random(hdr.ipv4.dstAddr, firstAllowedReplica, lastAllowedReplica);
     }
 
     /* Action that updates metadata with the info that the src IP does not belong to a client */
@@ -192,12 +191,18 @@ control SLBIngress(inout headers hdr,
     /* Table that stores the mapping between dst IP and dst MAC and egress port */
     table arpmap {
         /* WRITE YOUR CODE HERE */
+        key = {
+            hdr.ipv4.srcAddr: lpm;
+        }
+        actions = {
+            set_egress_metadata;
+        }
     }
 
     /* Table that stores the info that a certain IP belongs to a client */
     table ipv4_clients {
         key = {
-            hdr.ipv4.srcAddr: lpm;
+            hdr.ipv4.dstAddr: lpm;
         }
         actions = {
             set_client_metadata;
@@ -208,16 +213,35 @@ control SLBIngress(inout headers hdr,
     /* Table that stores the info that a certain IP belongs to a server */
     table ipv4_servers {
         /* WRITE YOUR CODE HERE */
+        key = {
+            hdr.ipv4.srcAddr: lpm;
+        }
+        actions = {
+            set_server_metadata;
+            unset_server_metadata;
+        }
     }
 
     /* Table that stores the info about which src IP is member of which group */
     table src_group_membership {
         /* WRITE YOUR CODE HERE */
+        key = {
+            hdr.ipv4.srcAddr: lpm;
+        }
+        actions = {
+            set_src_membership;
+        }
     }
 
     /* Table that stores the info about which dst IP is member of which group */
     table dst_group_membership {
         /* WRITE YOUR CODE HERE */
+        key = {
+            hdr.ipv4.dstAddr: lpm;
+        }
+        actions = {
+            set_dst_membership;
+        }
     }
 
     /* Apply ingress workflow */
