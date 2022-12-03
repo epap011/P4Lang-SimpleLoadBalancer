@@ -136,6 +136,14 @@ control SLBIngress(inout headers hdr,
     /* Action that transforms an ARP request into a suitable ARP reply */
     action arp_request_to_reply(macAddr_t srcMAC, macAddr_t dstMAC, ip4Addr_t srcIP, ip4Addr_t dstIP) {
         /* WRITE YOUR CODE HERE */
+        hdr.ethernet.srcAddr = srcMAC;
+        hdr.ethernet.dstAddr = dstMAC;
+        
+        hdr.arp.hwSrcAddr    = srcMAC;
+        hdr.arp.hwDstAddr    = dstMAC;
+        hdr.arp.protoSrcAddr = srcIP;
+        hdr.arp.protoDstAddr = dstIP;
+        hdr.arp.opCode       = 2;
         
         standard_metadata.egress_spec = standard_metadata.ingress_port; // the reply should be sent out of the in-port
     }
