@@ -136,13 +136,13 @@ control SLBIngress(inout headers hdr,
     /* Action that transforms an ARP request into a suitable ARP reply */
     action arp_request_to_reply(macAddr_t srcMAC, macAddr_t dstMAC, ip4Addr_t srcIP, ip4Addr_t dstIP) {
         /* WRITE YOUR CODE HERE */
-        hdr.ethernet.srcAddr = srcMAC;
-        hdr.ethernet.dstAddr = dstMAC;
+        hdr.ethernet.srcAddr   = dstMAC;
+        hdr.ethernet.dstAddr   = srcMAC;
         
-        hdr.arp.hwSrcAddr    = srcMAC;
-        hdr.arp.hwDstAddr    = dstMAC;
-        hdr.arp.protoSrcAddr = srcIP;
-        hdr.arp.protoDstAddr = dstIP;
+        hdr.arp.hwSrcAddr    = dstMAC;
+        hdr.arp.hwDstAddr    = srcMAC;
+        hdr.arp.protoSrcAddr = dstIP;
+        hdr.arp.protoDstAddr = srcIP;
         hdr.arp.opCode       = 2;
         
         standard_metadata.egress_spec = standard_metadata.ingress_port; // the reply should be sent out of the in-port
@@ -192,7 +192,7 @@ control SLBIngress(inout headers hdr,
     table arpmap {
         /* WRITE YOUR CODE HERE */
         key = {
-            hdr.ipv4.srcAddr: lpm;
+            hdr.ipv4.dstAddr: lpm;
         }
         actions = {
             set_egress_metadata;
@@ -202,7 +202,7 @@ control SLBIngress(inout headers hdr,
     /* Table that stores the info that a certain IP belongs to a client */
     table ipv4_clients {
         key = {
-            hdr.ipv4.dstAddr: lpm;
+            hdr.ipv4.srcAddr: lpm;
         }
         actions = {
             set_client_metadata;
@@ -251,9 +251,15 @@ control SLBIngress(inout headers hdr,
         }
         else if (hdr.arp.isValid() && hdr.arp.opCode == 1) {                // handle incoming ARP requests
             /* WRITE YOUR CODE HERE */
+            arp_request_to_reply(hdr.ethernet.srcAddr, lbMAC, hdr.arp.protoSrcAddr, hdr.arp.protoDstAddr);
         }
         else if (hdr.ipv4.isValid()) {
             /* WRITE YOUR CODE HERE */
+            ipv4_clients.apply();
+            ipv4_servers.apply();
+            src_group_membership.apply();
+            dst_group_membership.apply();
+
             if (!((meta.isClient == 1) || meta.isServer == 1) || meta.srcGroup != meta.dstGroup) {
                 drop();                                                     // drop if not coming from client or server
             }                                                               // of if the src/dst groups differ
@@ -275,17 +281,29 @@ control SLBEgress(inout headers hdr,
     /* Action that rewrites the header of client-to-server packets */
     action rewrite_client_to_server() {
        /* WRITE YOUR CODE HERE */
+       hdr.ethernet.srcAddr = lbMAC;
+       hdr.ethernet.dstAddr = meta.dstMAC;
     }
 
     /* Action that rewrites the header of server-to-client packets */
     action rewrite_server_to_client() {
        /* WRITE YOUR CODE HERE */
+       hdr.ipv4.srcAddr     = serviceIP;
+
+       hdr.ethernet.srcAddr = lbMAC;
+       hdr.ethernet.dstAddr = meta.dstMAC;
     }
 
     /* Apply egress workflow */
     apply {
         if (hdr.ipv4.isValid()) {
             /* WRITE YOUR CODE HERE */
+            if(meta.isClient == 1) {
+                rewrite_client_to_server();
+            }
+            else if(meta.isServer == 1) {
+                rewrite_server_to_client();
+            }
         }
     }
 }
